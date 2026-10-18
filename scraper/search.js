@@ -81,10 +81,17 @@ async function getResults(driver){
         const trainName = await trainNameElement.getText();
         console.log(trainName);
 
-        const DTimeXpath = ".//span[contains(@class, 'time')]/strong";
-        const DTimeElement = await item.findElement(By.xpath(DTimeXpath));
-        const DTime = await DTimeElement.getText();
-        console.log(`Departure Time: ${DTime}`);
+        
+        const timesXpath = ".//*[contains(@class, 'time')]";
+        const timesElements = await item.findElements(By.xpath(timesXpath));
+
+        const times = [];
+        for(let t of timesElements){
+            const time = await t.getText();
+            times.push(time);
+        }
+
+        console.log(`Departure: ${times[0]}, Arrival: ${times[1]}`);
 
 
     }
