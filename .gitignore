@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+reports/
+
+# Selenium/browser artifacts
+screenshots/
+downloads/
+*.har
+
+# Build and generated output
+dist/
+build/
+tmp/
+temp/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local runtime state
+*.pid
+*.pid.lock
+

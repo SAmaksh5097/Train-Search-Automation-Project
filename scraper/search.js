@@ -1,0 +1,81 @@
+import {openBrowser} from "../scraper/browser.js";
+import {By, Key, until} from "selenium-webdriver";
+import {englishButton, fromFieldXpath, firstFromOptionXpath, toFieldXpath, firstToOptionXpath, dateFieldXpath, searchXpath} from "../scraper/selectors.js";
+const url = "https://www.irctc.co.in/nget/train-search";
+
+async function setSearchParameters(driver, fromStation, toStation, date){
+    try{
+        // set language
+        const EnglishButton = await driver.wait(until.elementLocated(By.xpath(englishButton)),5000);
+        await EnglishButton.click();
+
+        // fill from station
+        const fromField = await driver.wait(until.elementLocated(By.xpath(fromFieldXpath)),10000);
+        if(!fromField){
+            throw new Error("From field not found");
+        }
+        await fromField.sendKeys(fromStation);
+
+        // select first from option
+        const firstFromOption = await driver.wait(until.elementLocated(By.xpath(firstFromOptionXpath)),5000);
+        if(!firstFromOption){
+            throw new Error("From station option not found");
+        }
+        await firstFromOption.click();
+
+        // fill to station
+        const toField = await driver.wait(until.elementLocated(By.xpath(toFieldXpath)),10000);
+        if(!toField){
+            throw new Error("To field not found");
+        }
+        await toField.sendKeys(toStation);
+
+        // select first to option
+        let firstToOption = await driver.wait(until.elementLocated(By.xpath(firstToOptionXpath)),5000);
+        await firstToOption.click();
+
+        // set date
+        const dateFieldInput = await driver.wait(until.elementLocated(By.xpath(dateFieldXpath)),5000);
+        if(!dateFieldInput){
+            throw new Error("Date field not found");
+        }
+        dateFieldInput.click();
+        dateFieldInput.sendKeys(Key.CONTROL, "a");
+        dateFieldInput.sendKeys(Key.BACK_SPACE);
+        dateFieldInput.sendKeys(date);
+        dateFieldInput.sendKeys(Key.ESCAPE);
+
+        // click search button
+        const searchButton = await driver.wait(until.elementLocated(By.xpath(searchXpath)),5000);
+        if(!searchButton){
+            throw new Error("Search button not found");
+        }
+        console.log("All Parameters set. Searching trains....");
+        await searchButton.click();
+
+    }
+
+    catch(err){
+        console.log("Error while setting search parameters: ", err);
+    }
+}
+
+
+
+async function run(){
+    const driver = await openBrowser(url);
+
+    if(!driver){
+        console.log("Driver not initialized");
+        return;
+    }
+    try{
+        setSearchParameters(driver, "NDLS", "KNW", "20/10/2026");
+        console.log("Starting train search automation...");
+    }
+    catch(err){
+        console.log("Error during automation", err);
+    }
+}
+
+run();
