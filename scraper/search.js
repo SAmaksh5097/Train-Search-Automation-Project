@@ -61,7 +61,34 @@ async function setSearchParameters(driver, fromStation, toStation, date){
 }
 
 
+async function getResults(driver){
+    const resultsXpath = "//div[@class='ng-star-inserted']/div[@class='ng-star-inserted']";
+    const results = await driver.wait(async () =>{
+        const elements = await driver.findElements(By.xpath(resultsXpath));
+        return elements.length > 0 ? elements : null;
+    },10000);
+    if(!results){
+        console.log("No results found");
+        return;
+    }
 
+    console.log(`Total ${results.length} trains found`);
+
+    
+    for(let item of results){
+        const trainNameXpath = ".//div[contains(@class, 'train-heading')]/strong";
+        const trainNameElement = await item.findElement(By.xpath(trainNameXpath));
+        const trainName = await trainNameElement.getText();
+        console.log(trainName);
+
+        const DTimeXpath = ".//span[contains(@class, 'time')]/strong";
+        const DTimeElement = await item.findElement(By.xpath(DTimeXpath));
+        const DTime = await DTimeElement.getText();
+        console.log(`Departure Time: ${DTime}`);
+
+
+    }
+}
 async function run(){
     const driver = await openBrowser(url);
 
@@ -70,8 +97,9 @@ async function run(){
         return;
     }
     try{
-        setSearchParameters(driver, "NDLS", "KNW", "20/10/2026");
         console.log("Starting train search automation...");
+        await setSearchParameters(driver, "NDLS", "CSTM", "20/10/2026");
+        await getResults(driver);
     }
     catch(err){
         console.log("Error during automation", err);
