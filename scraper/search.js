@@ -2,7 +2,7 @@ import {openBrowser} from "../scraper/browser.js";
 import {By, Key, until} from "selenium-webdriver";
 import {englishButton, fromFieldXpath, firstFromOptionXpath, toFieldXpath, firstToOptionXpath, dateFieldXpath, searchXpath} from "../scraper/selectors.js";
 const url = "https://www.irctc.co.in/nget/train-search";
-
+import {resultsXpath, trainNameXpath, timesXpath, fromStationXpath, toStationXpath, classCardsXpath, classNameXpath} from "../scraper/selectors.js";
 async function setSearchParameters(driver, fromStation, toStation, date){
     try{
         // set language
@@ -62,7 +62,6 @@ async function setSearchParameters(driver, fromStation, toStation, date){
 
 
 async function getResults(driver){
-    const resultsXpath = "//div[@class='ng-star-inserted']/div[@class='ng-star-inserted']";
     const results = await driver.wait(async () =>{
         const elements = await driver.findElements(By.xpath(resultsXpath));
         return elements.length > 0 ? elements : null;
@@ -76,13 +75,11 @@ async function getResults(driver){
 
     
     for(let item of results){
-        const trainNameXpath = ".//div[contains(@class, 'train-heading')]/strong";
         const trainNameElement = await item.findElement(By.xpath(trainNameXpath));
         const trainName = await trainNameElement.getText();
         console.log(trainName);
 
         
-        const timesXpath = ".//*[contains(@class, 'time')]";
         const timesElements = await item.findElements(By.xpath(timesXpath));
 
         const times = [];
@@ -92,6 +89,29 @@ async function getResults(driver){
         }
 
         console.log(`Departure: ${times[0]}, Arrival: ${times[1]}`);
+
+        const fromStationElement = await item.findElement(By.xpath(fromStationXpath));
+        const fromStation = (await fromStationElement.getText()).split("|")[1];
+        const startingDate = (await fromStationElement.getText()).split("|")[2];
+
+        console.log(fromStation);
+        console.log(startingDate);
+
+        const toStationElement = await item.findElement(By.xpath(toStationXpath));
+        const toStation = (await toStationElement.getText()).split("|")[1];
+        const endingDate = (await toStationElement.getText()).split("|")[2];
+
+        console.log(toStation);
+        console.log(endingDate);
+        
+        const classCards = await item.findElements(By.xpath(classCardsXpath));
+        for(let card of classCards){
+            const classNameElement = await card.findElement(By.xpath(classNameXpath));
+            const className = await classNameElement.getText();
+            console.log(className);
+        }
+
+
 
 
     }
