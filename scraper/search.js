@@ -3,6 +3,8 @@ import {By, Key, until} from "selenium-webdriver";
 import {englishButton, fromFieldXpath, firstFromOptionXpath, toFieldXpath, firstToOptionXpath, dateFieldXpath, searchXpath} from "../scraper/selectors.js";
 const url = "https://www.irctc.co.in/nget/train-search";
 import {resultsXpath, trainNameXpath, timesXpath, fromStationXpath, toStationXpath, classCardsXpath, classNameXpath} from "../scraper/selectors.js";
+import {format} from "../scraper/formatResult.js";
+import {writeFile} from "node:fs/promises";
 async function setSearchParameters(driver, fromStation, toStation, date){
     try{
         // set language
@@ -68,12 +70,13 @@ async function getResults(driver){
     },10000);
     if(!results){
         console.log("No results found");
-        return;
+        return [];
     }
 
     console.log(`Total ${results.length} trains found`);
 
-    
+    const rawResults = [];
+
     for(let item of results){
         const trainNameElement = await item.findElement(By.xpath(trainNameXpath));
         const trainName = await trainNameElement.getText();
@@ -91,30 +94,46 @@ async function getResults(driver){
         console.log(`Departure: ${times[0]}, Arrival: ${times[1]}`);
 
         const fromStationElement = await item.findElement(By.xpath(fromStationXpath));
-        const fromStation = (await fromStationElement.getText()).split("|")[1];
-        const startingDate = (await fromStationElement.getText()).split("|")[2];
+        const fromStationParts = (await fromStationElement.getText()).split("|");
+        const fromStation = fromStationParts[1];
+        const startingDate = fromStationParts[2];
 
         console.log(fromStation);
         console.log(startingDate);
 
         const toStationElement = await item.findElement(By.xpath(toStationXpath));
-        const toStation = (await toStationElement.getText()).split("|")[1];
-        const endingDate = (await toStationElement.getText()).split("|")[2];
+        const toStationParts = (await toStationElement.getText()).split("|");
+        const toStation = toStationParts[1];
+        const endingDate = toStationParts[2];
 
         console.log(toStation);
         console.log(endingDate);
         
+        const classes = [];
         const classCards = await item.findElements(By.xpath(classCardsXpath));
         for(let card of classCards){
             const classNameElement = await card.findElement(By.xpath(classNameXpath));
             const className = await classNameElement.getText();
+            classes.push(className);
             console.log(className);
         }
 
+        rawResults.push({
+            trainName,
+            departure: times[0],
+            arrival: times[1],
+            fromStation,
+            startingDate,
+            toStation,
+            endingDate,
+            classes
+        });
 
-
+        console.log("---------------------------------------------------");
 
     }
+
+    return format(rawResults);
 }
 async function run(){
     const driver = await openBrowser(url);
@@ -126,7 +145,10 @@ async function run(){
     try{
         console.log("Starting train search automation...");
         await setSearchParameters(driver, "NDLS", "CSTM", "20/10/2026");
-        await getResults(driver);
+        const formattedResults = await getResults(driver);
+        await writeFile("results.json", JSON.stringify(formattedResults, null, 2));
+        console.log("Results exported to results.json");
+        console.log(JSON.stringify(formattedResults, null, 2));
     }
     catch(err){
         console.log("Error during automation", err);
