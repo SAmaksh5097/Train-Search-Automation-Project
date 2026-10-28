@@ -103,3 +103,7 @@ const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => {
   console.log("API running on port " + port);
 });
+
+app.get("/", (req, res) => {
+  res.send("Hello! The API is running.");
+});
