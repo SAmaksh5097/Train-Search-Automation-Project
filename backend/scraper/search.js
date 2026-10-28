@@ -142,6 +142,10 @@ export async function run({from, to, date}){
         console.log("Error during automation", err);
         throw err;
     }
+    finally{
+        await driver.quit();
+    }
+    
 }
 
 // run({from: "New Delhi (NDLS)", to: "Khandwa Junction (KNW)", date: "12/12/2026"});

@@ -11,10 +11,8 @@ dotenv.config();
 
 // ---------- config ----------
 const MODEL = process.env.OLLAMA_MODEL ?? "gemma4:31b";
-// Ollama cloud: https://ollama.com + API key. Local Ollama: http://localhost:11434 (no key)
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "https://ollama.com";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
-// "functionCalling" for gpt-oss; "jsonSchema" for llama3.1 / qwen2.5 on Ollama >= 0.5.0
 const STRUCTURED_METHOD = process.env.STRUCTURED_METHOD ?? "functionCalling";
 const REDIS_URL = process.env.REDIS_URL;
 const SESSION_TTL_SEC = 30 * 60;
@@ -52,6 +50,7 @@ const emptyStation = () => ({ status: "missing", name: null, options: [] });
 const newState = () => ({
   messages: [], // [{ role: "human" | "ai", content }]
   slots: { from: emptyStation(), to: emptyStation(), date: null },
+  awaitingFollowUp: false,
 });
 
 async function loadState(id) {
@@ -116,7 +115,7 @@ const llm = new ChatOllama({
   baseUrl: OLLAMA_URL,
   temperature: 0,
   headers: OLLAMA_API_KEY
-  ? { Authorization: `Bearer ${OLLAMA_API_KEY.trim()}` }
+  ? { Authorization: `Bearer ${OLLAMA_API_KEY}` }
   : undefined,
 });
 chain = prompt.pipe(llm.withStructuredOutput(turnSchema, { method: STRUCTURED_METHOD }));
@@ -183,9 +182,81 @@ const mergeStation = (prev, next) => {
 const toHistory = (messages) =>
   messages.map((m) => (m.role === "human" ? new HumanMessage(m.content) : new AIMessage(m.content)));
 
+const isCancellationRequest = (text) => {
+  const normalized = text.trim().toLowerCase();
+
+  if (/\b(?:don't|dont|do not)\s+(?:want to\s+)?(?:cancel|stop|abort)\b/.test(normalized)) {
+    return false;
+  }
+
+  return /\b(?:cancel|abort|stop|quit|exit)\b/.test(normalized);
+};
+
+const isPositiveFollowUp = (text) =>
+  /^(?:yes|yeah|yep|sure|okay|ok|yup|of course|search more|another one|continue)\b/i.test(
+    text.trim()
+  );
+
+const isNegativeFollowUp = (text) =>
+  /^(?:no|nope|nah|not now|that's all|that is all|done|finish)\b/i.test(
+    text.trim()
+  );
+
 // ---------- one turn: user text in -> { done, reply } or { done, result } ----------
-async function handleTurn(sessionId, userText) {
+export async function handleTurn(sessionId, userText) {
+  initialize();
+
+  if (typeof sessionId !== "string" || !sessionId.trim()) {
+    throw new TypeError("sessionId must be a non-empty string");
+  }
+  if (typeof userText !== "string" || !userText.trim()) {
+    throw new TypeError("userText must be a non-empty string");
+  }
+
+  if (isCancellationRequest(userText)) {
+    await redis.del(key(sessionId));
+    return {
+      done: false,
+      cancelled: true,
+      reply: "Your search has been cancelled. You can start a new search whenever you are ready.",
+    };
+  }
+
   const state = await loadState(sessionId);
+
+  if (state.awaitingFollowUp) {
+    if (isNegativeFollowUp(userText)) {
+      await redis.del(key(sessionId));
+      return {
+        done: false,
+        cancelled: true,
+        reply: "Okay, your session has been terminated. Have a great day!",
+      };
+    }
+
+    if (isPositiveFollowUp(userText)) {
+      const nextState = newState();
+      nextState.messages.push({
+        role: "human",
+        content: userText,
+      });
+      nextState.messages.push({
+        role: "ai",
+        content: "Sure. Which station are you travelling from?",
+      });
+      await saveState(sessionId, nextState);
+      return {
+        done: false,
+        reply: "Sure. Which station are you travelling from?",
+      };
+    }
+
+    return {
+      done: false,
+      reply: "Would you like to search for another journey? Please answer yes or no.",
+    };
+  }
+
   const today = todayIST();
 
   let out;
@@ -229,9 +300,18 @@ async function handleTurn(sessionId, userText) {
   // Guardrails in code (don't blindly trust the LLM)
   const parsedDate = date && toComparableDate(date);
   const parsedToday = toComparableDate(today);
+  const latestBookableDate = parsedToday
+    ? new Date(parsedToday.getTime() + 60 * 24 * 60 * 60 * 1000)
+    : null;
+
   if (date && (!parsedDate || !parsedToday || parsedDate < parsedToday)) {
     date = null;
     reply = "That date looks invalid or in the past. Which date would you like to travel?";
+  } else if (date && latestBookableDate && parsedDate > latestBookableDate) {
+    date = null;
+    reply =
+      "Indian Railways allows bookings only 60 days in advance. " +
+      "Please provide a date within the next 60 days.";
   }
   if (from.status === "valid" && to.status === "valid" && from.name === to.name) {
     to = emptyStation();
@@ -239,7 +319,9 @@ async function handleTurn(sessionId, userText) {
   }
 
   if (from.status === "valid" && to.status === "valid" && date) {
-    await redis.del(key(sessionId)); // finished: clean up the session
+    state.slots = { from, to, date };
+    state.awaitingFollowUp = true;
+    await saveState(sessionId, state);
     return { done: true, result: { from: from.name, to: to.name, date } };
   }
 
@@ -248,6 +330,16 @@ async function handleTurn(sessionId, userText) {
   state.messages.push({ role: "ai", content: reply });
   await saveState(sessionId, state);
   return { done: false, reply };
+}
+
+export async function resetConversation(sessionId) {
+  initialize();
+
+  if (typeof sessionId !== "string" || !sessionId.trim()) {
+    throw new TypeError("sessionId must be a non-empty string");
+  }
+
+  await redis.del(key(sessionId));
 }
 
 // ---------- the main function: loops until from, to and date are all collected ----------
