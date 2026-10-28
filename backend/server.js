@@ -99,6 +99,7 @@ app.use((error, req, res, next) => {
   return next(error);
 });
 
-app.listen(3000, () => {
-  console.log("API running on http://localhost:3000");
+const port = Number(process.env.PORT) || 3000;
+app.listen(port, () => {
+  console.log("API running on port " + port);
 });
