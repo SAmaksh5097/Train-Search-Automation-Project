@@ -12,6 +12,8 @@ The project combines:
 - Redis for short-lived chat sessions and API rate limiting
 - Selenium WebDriver and Chrome for browser-based train searches
 
+<img width="1916" height="968" alt="image" src="https://github.com/user-attachments/assets/0c2a78e2-126c-42e2-bccb-b2252bfbac2e" />
+
 ## Important limitation
 
 The Selenium workflow depends on the target railway website being accessible
@@ -172,6 +174,13 @@ npm run dev
 npm run build
 npm run lint
 ```
+
+<img width="1897" height="958" alt="image" src="https://github.com/user-attachments/assets/7e8139a6-0868-4b8c-b55c-0459a1e54e45" />
+
+<img width="1886" height="967" alt="image" src="https://github.com/user-attachments/assets/3e4597cb-e665-47d5-a32a-121caca17b90" />
+
+<img width="1891" height="962" alt="image" src="https://github.com/user-attachments/assets/2561e6a2-7f1c-4a21-a345-a72be1069e7e" />
+
 
 ## Troubleshooting
 
