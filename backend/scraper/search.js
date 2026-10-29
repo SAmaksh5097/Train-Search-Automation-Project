@@ -126,11 +126,6 @@ async function getResults(driver){
 }
 export async function run({from, to, date}){
     const driver = await openBrowser(url);
-
-    if(!driver){
-        console.log("Driver not initialized");
-        return;
-    }
     try{
         console.log("Starting train search automation...");
         await setSearchParameters(driver, from, to, date);
